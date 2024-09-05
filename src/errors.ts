@@ -1,4 +1,5 @@
 import { WebAuthnError as SimpleWebAuthnError, type WebAuthnErrorCode } from '@simplewebauthn/browser';
+import { Platform } from 'expo-modules-core';
 
 export enum WebAuthnError {
 	UnknownError = 'Unknown Error',
@@ -20,6 +21,7 @@ export enum WebAuthnError {
 	GeneralAuthenticationError = 'The authenticator was unable to process the specified options, or could not create a new assertion signature',
 	UserCanceled = 'User canceled the request',
 	NoCredentialsOnDevice = 'No credentials for this username are stored on this device',
+	NotAllowedByServer = 'The server did not explicitly allow this request (you may want to check Asset Links for Android or Apple App Site Association for iOS)',
 }
 
 export type WebAuthnErrorInfo = [error: WebAuthnError, additionalContext: string | null]
@@ -97,6 +99,9 @@ export function errorMessageToEnumValue(messageOrCode: WebAuthnErrorCode | strin
 		case WebAuthnError.GeneralAuthenticationError:
 		case 'ERROR_AUTHENTICATOR_GENERAL_ERROR':
 			return [WebAuthnError.UnknownError, null];
+
+		case 'The incoming request cannot be validated':
+			return [WebAuthnError.NotAllowedByServer, Platform.OS];
 
 		case 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY':
 			return[WebAuthnError.UnknownError, error && error instanceof SimpleWebAuthnError ? error.message : null];

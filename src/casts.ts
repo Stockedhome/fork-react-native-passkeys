@@ -1,9 +1,23 @@
-import type { PublicKeyCredentialCreationOptionsJSON as S_PublicKeyCredentialCreationOptionsJSON, AuthenticationResponseJSON as S_AuthenticationResponseJSON } from "@simplewebauthn/typescript-types";
-import type { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON } from "./ReactNativePasskeys.types";
+import type { PublicKeyCredentialCreationOptionsJSON as S_PublicKeyCredentialCreationOptionsJSON, AuthenticationResponseJSON as S_AuthenticationResponseJSON, RegistrationResponseJSON as S_RegistrationResponseJSON, AuthenticatorAttestationResponseJSON as S_AuthenticatorAttestationResponseJSON, PublicKeyCredentialRequestOptionsJSON as S_PublicKeyCredentialRequestOptionsJSON, PublicKeyCredentialDescriptorJSON as S_PublicKeyCredentialDescriptorJSON, AuthenticationExtensionsClientOutputs as S_AuthenticationExtensionsClientOutputs } from "@simplewebauthn/typescript-types";
+import type { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, RegistrationResponseJSON, PublicKeyCredentialRequestOptionsJSON } from "./ReactNativePasskeys.types";
 
 export function castFromSimpleWebAuthnRegistrationOptions(options: S_PublicKeyCredentialCreationOptionsJSON): PublicKeyCredentialCreationOptionsJSON {
     return options as typeof options & {
         extensions: Record<any, any>;
+    }
+}
+
+export function castToSimpleWebAuthnRegistrationResponse(response: RegistrationResponseJSON): S_RegistrationResponseJSON {
+    return response as typeof response & {
+        response: S_AuthenticatorAttestationResponseJSON;
+        clientExtensionResults: S_AuthenticationExtensionsClientOutputs;
+    }
+}
+
+export function castFromSimpleWebAuthnAuthenticationOptions(options: PublicKeyCredentialRequestOptionsJSON): S_PublicKeyCredentialRequestOptionsJSON {
+    return options as typeof options & {
+        allowCredentials?: S_PublicKeyCredentialDescriptorJSON[];
+        extensions?: AuthenticationExtensionsClientInputs;
     }
 }
 
