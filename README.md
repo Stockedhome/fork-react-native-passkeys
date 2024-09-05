@@ -1,3 +1,27 @@
+# Stockedhome Fork: React Native Passkeys
+
+This is a fork of [peterferguson/react-native-passkeys](https://github.com/peterferguson/react-native-passkeys) with the following changes:
+* Android: Largely rewrite to change api from `androidx.credentials.webauthn` to `com.google.android.gms.fido.fido2` to support non-Google authenticators
+  * `androidx.credentials.webauthn`, while it allows users to register external authenticators, it does not allow users to authenticate with them
+  * `androidx.credentials.webauthn` does not match the flow users may be used to from browsers (Chrome, Firefox, etc.)
+* Include `@simplewebauthn/browser` and rewrite this library's JS-side code to match
+* Rewrite API names to match `@simplewebauthn/browser`'s API names
+* Rewrite API to use return values instead of throwing errors; for a browser API with many obscure errors, this makes it easier to handle them all.
+* Validate API returns end-to-end using Zod to ensure APIs return exactly what you expect
+
+Minimum API version has not yet been analyzed/tested but is known to be functional on API 31 (Android 12).
+
+> [!WARNING]
+> This fork has not been tested on iOS. It is likely that it will not work on iOS.
+
+> [!WARNING]
+> The example app has not been updated to reflect the changes in this fork.
+
+## Library TODOs
+* Test on iOS
+* Update the example app
+* Set up CI/CD to publish to npm
+
 # React Native Passkeys
 
 This is an Expo module to help you create and authenticate with passkeys on iOS, Android & web with the same api. The library aims to stay close to the standard [`navigator.credentials`](https://w3c.github.io/webappsec-credential-management/#framework-credential-management). More specifically, we provide an api for `get` & `create` functions (since these are the functions available cross-platform).

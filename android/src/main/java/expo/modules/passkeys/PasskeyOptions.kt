@@ -22,7 +22,7 @@ class PublicKeyCredentialCreationOptions: Record {
     var pubKeyCredParams: List<PublicKeyCredentialParameters> = listOf()
 
     @Field
-    var timeout: Int? = null
+    var timeout: Double? = null
 
     @Field
     var excludeCredentials: List<PublicKeyCredentialDescriptor>? = null
@@ -55,7 +55,7 @@ class PublicKeyCredentialParameters: Record {
     var type: String = ""
 
     @Field
-    var alg: Long = 0
+    var alg: Int = 0
 }
 
 /**
@@ -72,10 +72,10 @@ class PublicKeyCredentialRequestOptions: Record {
 
     // TODO: implement the timeout
     @Field
-    var timeout: Int? = null
+    var timeout: Double? = null
 
     @Field
-    var allowCredentials: List<PublicKeyCredentialParameters>? = null
+    var allowCredentials: List<PublicKeyCredentialDescriptor>? = null
 
     @Field
     var userVerification: String? = null
@@ -87,7 +87,10 @@ class PublicKeyCredentialRpEntity: Record {
     var name: String = ""
 
     @Field
-    var id: String? = null
+    var id: String = ""
+
+    @Field
+    var icon: String? = null
 }
 
 /**
@@ -96,13 +99,16 @@ Specification reference: https://w3c.github.io/webauthn/#dictdef-publickeycreden
 class PublicKeyCredentialUserEntity: Record {
 
     @Field
-    var name: String = ""
+    var name: String = "" // these aren't technically in the spec but required by Android
 
     @Field
     var displayName: String = ""
 
     @Field
     var id: String = ""
+
+    @Field
+    var icon: String = "" // these aren't technically in the spec but required by Android
 }
 
 

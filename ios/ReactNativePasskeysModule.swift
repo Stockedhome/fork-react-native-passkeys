@@ -25,54 +25,54 @@ final public class ReactNativePasskeysModule: Module, PasskeyResultHandler {
       return false
     }
 
-    AsyncFunction("get") { (request: PublicKeyCredentialRequestOptions, promise: Promise) throws in
-        do { 
+    AsyncFunction("startAuthentication") { (request: PublicKeyCredentialRequestOptions, promise: Promise) throws in
+        do {
             // - all the throws are already in the helper `isAvailable` so we don't need to do anything
             // ? this seems like a code smell ... what is the best way to do this
-            let _ = try isAvailable() 
-        } 
+            let _ = try isAvailable()
+        }
         catch let error {
             throw error
         }
         let passkeyDelegate = PasskeyDelegate(handler: self)
         passkeyContext = PasskeyContext(passkeyDelegate: passkeyDelegate, promise: promise)
-        
+
         guard let challengeData: Data = Data(base64URLEncoded: request.challenge) else {
             throw InvalidChallengeException()
         }
 
         let crossPlatformKeyAssertionRequest = prepareCrossPlatformAssertionRequest(challenge: challengeData, request: request)
         let platformKeyAssertionRequest = preparePlatformAssertionRequest(challenge: challengeData, request: request)
-        
+
         let authController = ASAuthorizationController(authorizationRequests: [platformKeyAssertionRequest, crossPlatformKeyAssertionRequest])
-    
+
         passkeyDelegate.performAuthForController(controller: authController);
     }.runOnQueue(.main)
 
-    AsyncFunction("create") { (request: PublicKeyCredentialCreationOptions, promise: Promise) throws in
-        do { 
+    AsyncFunction("startRegistration") { (request: PublicKeyCredentialCreationOptions, promise: Promise) throws in
+        do {
             // - all the throws are already in the helper `isAvailable` so we don't need to do anything
             // ? this seems like a code smell ... what is the best way to do this
-            let _ = try isAvailable() 
-        } 
+            let _ = try isAvailable()
+        }
         catch let error {
             throw error
         }
 
         let passkeyDelegate = PasskeyDelegate(handler: self)
         let context = PasskeyContext(passkeyDelegate: passkeyDelegate, promise: promise)
-        
+
         guard let challengeData: Data = Data(base64URLEncoded: request.challenge) else {
             throw InvalidChallengeException()
         }
-        
+
         guard let userId: Data = Data(base64URLEncoded: request.user.id) else {
             throw InvalidUserIdException()
         }
-        
+
         var crossPlatformKeyRegistrationRequest: ASAuthorizationSecurityKeyPublicKeyCredentialRegistrationRequest?
         var platformKeyRegistrationRequest: ASAuthorizationPlatformPublicKeyCredentialRegistrationRequest?
-        
+
         if request.authenticatorSelection?.authenticatorAttachment == AuthenticatorAttachment.crossPlatform {
             crossPlatformKeyRegistrationRequest = prepareCrossPlatformRegistrationRequest(challenge: challengeData,
                                                                                           userId: userId,
@@ -92,10 +92,10 @@ final public class ReactNativePasskeysModule: Module, PasskeyResultHandler {
         }
 
         passkeyContext = context
-        
+
         context.passkeyDelegate.performAuthForController(controller: authController);
     }.runOnQueue(.main)
-      
+
   }
 
   private func isAvailable() throws -> Bool {
@@ -125,7 +125,7 @@ final public class ReactNativePasskeysModule: Module, PasskeyResultHandler {
       promise.resolve(registrationResult)
       return
     }
-    
+
     if let assertionResult: AuthenticationResponseJSON = data.get() {
       promise.resolve(assertionResult)
       return
@@ -138,7 +138,7 @@ final public class ReactNativePasskeysModule: Module, PasskeyResultHandler {
       return
     }
     passkeyContext = nil
-    promise.reject(handleASAuthorizationError(errorCode:(error as NSError).code, 
+    promise.reject(handleASAuthorizationError(errorCode:(error as NSError).code,
                                               localizedDescription: error.localizedDescription))
   }
 
@@ -194,14 +194,14 @@ private func preparePlatformRegistrationRequest(challenge: Data,
       platformKeyCredentialProvider.createCredentialRegistrationRequest(challenge: challenge,
                                                                         name: request.user.name,
                                                                         userID: userId)
-    
+
 //    if let residentCredPref = request.authenticatorSelection?.residentKey {
 //        platformKeyRegistrationRequest.residentKeyPreference = residentCredPref.appleise()
 //    }
-    
+
     // TODO: integrate this
     // platformKeyRegistrationRequest.shouldShowHybridTransport
-    
+
     if #available(iOS 17, *) {
          switch (request.extensions?.largeBlob?.support) {
          case .preferred:
@@ -228,11 +228,11 @@ private func preparePlatformRegistrationRequest(challenge: Data,
             }
         }
     }
-    
+
   return platformKeyRegistrationRequest
 }
 
-private func prepareCrossPlatformAssertionRequest(challenge: Data, 
+private func prepareCrossPlatformAssertionRequest(challenge: Data,
                                                   request: PublicKeyCredentialRequestOptions) -> ASAuthorizationSecurityKeyPublicKeyCredentialAssertionRequest {
 
     let crossPlatformCredentialProvider = ASAuthorizationSecurityKeyPublicKeyCredentialProvider(
@@ -259,23 +259,23 @@ private func preparePlatformAssertionRequest(challenge: Data, request: PublicKey
 
     let platformKeyAssertionRequest: ASAuthorizationPlatformPublicKeyCredentialAssertionRequest =
       platformKeyCredentialProvider.createCredentialAssertionRequest(challenge: challenge)
-    
-    
+
+
     if #available(iOS 17, *) {
         if (request.extensions?.largeBlob?.read == true) {
             platformKeyAssertionRequest.largeBlob = ASAuthorizationPublicKeyCredentialLargeBlobAssertionInput.read
         }
-        
+
         else if let blob = request.extensions?.largeBlob?.write {
             platformKeyAssertionRequest.largeBlob = ASAuthorizationPublicKeyCredentialLargeBlobAssertionInput.write(
                 Data(base64URLEncoded: blob)!
             )
         }
     }
-    
+
     // TODO: integrate this
     // platformKeyAssertionRequest.shouldShowHybridTransport
-    
+
     if let userVerificationPref = request.userVerification {
         platformKeyAssertionRequest.userVerificationPreference = userVerificationPref.appleise()
     }
@@ -339,4 +339,3 @@ extension LAContext {
         }
     }
 }
-
