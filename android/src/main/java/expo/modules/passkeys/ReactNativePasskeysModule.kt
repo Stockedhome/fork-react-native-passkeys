@@ -1,6 +1,5 @@
 package expo.modules.passkeys
 
-import AuthenticatorAssertionResponseJSON
 import AuthenticatorSelectionCriteria
 import PublicKeyCredentialCreationOptions
 import PublicKeyCredentialDescriptor
@@ -8,24 +7,24 @@ import PublicKeyCredentialParameters
 import PublicKeyCredentialRequestOptions
 import PublicKeyCredentialRpEntity
 import PublicKeyCredentialUserEntity
-import com.google.gson.Gson
-import expo.modules.kotlin.Promise
-import expo.modules.kotlin.modules.Module
-import expo.modules.kotlin.modules.ModuleDefinition
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
-import com.facebook.react.bridge.ActivityEventListener
-import com.google.android.gms.fido.Fido
-import com.google.android.gms.fido.fido2.Fido2ApiClient
-import com.google.android.gms.tasks.Task
-import com.facebook.react.bridge.ReactApplicationContext
-import com.google.android.gms.fido.fido2.api.common.AttestationConveyancePreference
 import android.util.Base64
-import com.google.android.gms.fido.fido2.api.common.AuthenticatorAssertionResponse
-import com.google.android.gms.fido.fido2.api.common.AuthenticatorAttestationResponse
+import android.util.Log
+import com.facebook.react.bridge.ActivityEventListener
+import com.facebook.react.bridge.ReactApplicationContext
+import com.google.android.gms.fido.Fido
+import com.google.android.gms.fido.common.Transport
+import com.google.android.gms.fido.common.Transport.UnsupportedTransportException
+import com.google.android.gms.fido.fido2.Fido2ApiClient
+import com.google.android.gms.fido.fido2.api.common.AttestationConveyancePreference
 import com.google.android.gms.fido.fido2.api.common.AuthenticatorErrorResponse
 import com.google.android.gms.fido.fido2.api.common.PublicKeyCredential
+import com.google.android.gms.tasks.Task
+import expo.modules.kotlin.Promise
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
 
 //
 // Lots of code was either taken from or inspired by
@@ -53,10 +52,11 @@ class ReactNativePasskeysModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("ReactNativePasskeys")
 
-        fido2ApiClient = Fido.getFido2ApiClient(appContext.reactContext!!)
-
         val reactContext = appContext.reactContext!! as ReactApplicationContext // Expo abstracts the type but it's always a ReactApplicationContext according to their own internal types
         reactContext.addActivityEventListener(ReactNativePasskeysActivityEventListener(reactContext))
+
+        //com.google.android.libraries.phenotype.client.PhenotypeContext.setContext(reactContext)
+        fido2ApiClient = Fido.getFido2ApiClient(reactContext)
 
         Function("isSupported") {
             val minApiLevelPasskeys = 21 // Android 5; As of July 21, https://apilevels.com says 99.6% of devices meet this API level and that's all devices
@@ -78,14 +78,13 @@ class ReactNativePasskeysModule : Module() {
                 return@AsyncFunction
             }
 
-            val creationOptions = parsePublicKeyCredentialCreationOptions(options)
-
-
-            // PERSON WHO JUST WOKE UP
-            // TODO LIST:
-            // * Turn json into the usable native stuff. Only real way is to parse it manually, unfortunately. Rely on Google's example.
-            // * Turn this into a fork of react-native-passkeys
-            // * Be awesome; you got this!
+            val creationOptions: com.google.android.gms.fido.fido2.api.common.PublicKeyCredentialCreationOptions
+            try {
+                creationOptions = parsePublicKeyCredentialCreationOptions(options)
+            } catch (e: Exception) {
+                promise.reject("CreateCredentialError", e.stackTraceToString(), e)
+                return@AsyncFunction
+            }
 
             val task: Task<PendingIntent> = fido2ApiClient.getRegisterPendingIntent(creationOptions)
             task.addOnSuccessListener { pendingIntent ->
@@ -116,7 +115,14 @@ class ReactNativePasskeysModule : Module() {
                 return@AsyncFunction
             }
 
-            val requestOptions = parsePublicKeyCredentialRequestOptions(options)
+            val requestOptions: com.google.android.gms.fido.fido2.api.common.PublicKeyCredentialRequestOptions
+            try {
+                requestOptions = parsePublicKeyCredentialRequestOptions(options)
+            } catch (e: Exception) {
+                promise.reject("GetCredentialError", e.stackTraceToString(), e)
+                Log.e("startAuthentication", "Error parsing PublicKeyCredentialRequestOptions object passed to startAuthentication" + e.stackTraceToString())
+                return@AsyncFunction
+            }
 
             val task: Task<PendingIntent> = fido2ApiClient.getSignPendingIntent(requestOptions)
             task.addOnSuccessListener { pendingIntent ->
@@ -177,7 +183,24 @@ class ReactNativePasskeysModule : Module() {
     private fun parsePublicKeyCredentialDescriptor(
         objToParse: PublicKeyCredentialDescriptor
     ): com.google.android.gms.fido.fido2.api.common.PublicKeyCredentialDescriptor {
-        return com.google.android.gms.fido.fido2.api.common.PublicKeyCredentialDescriptor(objToParse.type, objToParse.id.decodeBase64(), objToParse.transports?.map { s -> com.google.android.gms.fido.common.Transport.fromString(s) })
+        return com.google.android.gms.fido.fido2.api.common.PublicKeyCredentialDescriptor(
+            objToParse.type,
+            objToParse.id.decodeBase64(),
+            objToParse.transports?.mapNotNull { transport -> parseTransport(transport) }
+        )
+    }
+
+    // this exists purely because Google's .fromString() method does way more validation than we need
+    private fun parseTransport(transport: String): com.google.android.gms.fido.common.Transport? {
+        val allTransports = Transport.entries.toTypedArray()
+
+        for (i in allTransports.indices) {
+            if (transport == allTransports[i].toString()) {
+                return allTransports[i]
+            }
+        }
+
+        return null
     }
 
     private fun parsePublicKeyCredentialParameters(
@@ -239,17 +262,21 @@ private class ReactNativePasskeysActivityEventListener(private val reactContext:
             when {
                 resultCode != Activity.RESULT_OK -> {
                     val e = Error("Unknown error in passkey registration")
+                    Log.e("PasskeyCreateUnknownException", e.stackTraceToString())
                     promise?.reject("PasskeyCreateUnknownException", e.stackTraceToString(), e)
                 } bytes == null -> {
                     val e = Error("No data returned from FIDO2 passkey creation Activity")
+                    Log.e("PasskeyCreateException", e.stackTraceToString())
                     promise?.reject("PasskeyCreateException", e.stackTraceToString(), e)
                 } else -> {
                     val credential = PublicKeyCredential.deserializeFromBytes(bytes)
                     val response = credential.response
                     if (response is AuthenticatorErrorResponse) {
                         val e = Error(response.errorMessage)
+                        Log.e("PasskeyCreateException", "Error from FIDO2 Activity during credential creation (registration): ${response.errorCode.name} ${response.errorMessage} ${e.stackTraceToString()}")
                         promise?.reject("PasskeyCreateException", response.errorMessage, e)
                     } else {
+                        Log.d("PasskeyCreateSuccess", credential.rawId?.toBase64() ?: "[No credential.rawId]")
                         promise?.resolve(credential.toJson())
                     }
                 }
@@ -269,17 +296,21 @@ private class ReactNativePasskeysActivityEventListener(private val reactContext:
             when {
                 resultCode != Activity.RESULT_OK -> {
                     val e = Error("Unknown error in passkey authentication")
+                    Log.e("PasskeyGetUnknownException", e.stackTraceToString())
                     promise?.reject("PasskeyGetUnknownException", e.stackTraceToString(), e)
                 } bytes == null -> {
                     val e = Error("No data returned from FIDO2 passkey authentication Activity")
+                    Log.e("PasskeyGetException", e.stackTraceToString())
                     promise?.reject("PasskeyGetException", e.stackTraceToString(), e)
                 } else -> {
                     val credential = PublicKeyCredential.deserializeFromBytes(bytes)
                     val response = credential.response
                     if (response is AuthenticatorErrorResponse) {
                         val e = Error(response.errorMessage)
+                        Log.e("PasskeyGetException", "Error from FIDO2 Activity during credential request (authentication): ${response.errorCode.name} ${response.errorMessage} ${e.stackTraceToString()}")
                         promise?.reject("PasskeyGetException", response.errorMessage, e)
                     } else {
+                        Log.d("PasskeyGetSuccess", credential.rawId?.toBase64() ?: "[No credential.rawId]")
                         promise?.resolve(credential.toJson())
                     }
                 }

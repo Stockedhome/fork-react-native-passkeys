@@ -40,73 +40,95 @@ export type {
 
 import base64 from '@hexagon/base64';
 const base64UrlSchema: ZodType<Base64URLString> = z.string().refine((value) => {
-	const returnVal = !!base64.base64.validate(value, true)
+	const returnVal = !!base64.validate(value, true)
 	console.log('base64UrlSchema', value, returnVal)
 	return returnVal
 }, { message: "Invalid base64url" });
+
+
+
+
+// Credit to @jinyongp for the ToZodSchema type
+// https://github.com/colinhacks/zod/issues/2807#issuecomment-2194814070
+
+type IsNullable<T> = Extract<T, null> extends never ? false : true
+type IsOptional<T> = Extract<T, undefined> extends never ? false : true
+
+type ZodWithEffects<T extends import('zod').ZodTypeAny> = T | import('zod').ZodEffects<T, unknown, unknown>
+
+type ToZodSchema<T extends Record<string, any>> = {
+  [K in keyof T]-?: IsNullable<T[K]> extends true
+    ? ZodWithEffects<import('zod').ZodNullable<import('zod').ZodType<T[K]>>>
+    : IsOptional<T[K]> extends true
+      ? ZodWithEffects<import('zod').ZodOptional<import('zod').ZodType<T[K]>>>
+      : ZodWithEffects<import('zod').ZodType<T[K]>>
+}
+
+
 
 export interface PublicKeyCredentialDescriptorJSON extends Omit<PublicKeyCredentialDescriptorJSONBase, "transports"> {
 	transports?: AuthenticatorTransportFuture[];
 };
 
 export type AuthenticatorTransportFuture =  'bt' | AuthenticatorTransportFutureBase | (string & {}); // The type (string & {}) allows any string while still giving autocomplete and type-on-hover hints
+export const authenticatorTransportFutureSchema: z.ZodType<AuthenticatorTransportFuture> = z.string();
 
-
-export const publicKeyCredentialDescriptorJSONSchema: ZodType<PublicKeyCredentialDescriptorJSON> = z.object({
+export const publicKeyCredentialDescriptorJSONSchema = z.object({
     id: base64UrlSchema,
     type: z.literal("public-key"),
-    transports: z.array(z.string()).optional(),
-});
+    transports: z.array(authenticatorTransportFutureSchema).optional(),
+} satisfies ToZodSchema<PublicKeyCredentialDescriptorJSON>);
 
 
 export interface PublicKeyCredentialUserEntityWithIcon extends PublicKeyCredentialUserEntityJSON {
     icon?: string;
 }
 
-export const publicKeyCredentialUserEntityWithIconSchema: ZodType<PublicKeyCredentialUserEntityWithIcon> = z.object({
+export const publicKeyCredentialUserEntityWithIconSchema = z.object({
 	id: base64UrlSchema,
 	name: z.string(),
 	displayName: z.string(),
 	icon: z.string().optional(),
-});
+} satisfies ToZodSchema<PublicKeyCredentialUserEntityWithIcon>);
 
 export interface PublicKeyCredentialRpEntityWithIcon extends PublicKeyCredentialRpEntity {
+	id: string; // required so no stupid bugs happen
 	icon?: string;
 }
 
-export const publicKeyCredentialRpEntityWithIconSchema: ZodType<PublicKeyCredentialRpEntityWithIcon> = z.object({
+export const publicKeyCredentialRpEntityWithIconSchema = z.object({
 	id: z.string(), // So, funny story. I initially had this as base64UrlSchema and spent, like, 20 minutes debugging, finally found it
 	name: z.string(),
 	icon: z.string().optional(),
-});
+} satisfies ToZodSchema<PublicKeyCredentialRpEntityWithIcon>);
 
 export interface AuthenticationExtensionsPRFValues {
     first: BufferSource;
     second?: BufferSource;
 };
 
-export const arrayBufferViewSchema: ZodType<ArrayBufferView> = z.object({
+export const arrayBufferViewSchema = z.object({
     buffer: z.instanceof(ArrayBuffer),
     byteLength: z.number(),
     byteOffset: z.number(),
-})
+} satisfies ToZodSchema<ArrayBufferView>)
 
 export const bufferSourceSchema: ZodType<BufferSource> = z.union([z.instanceof(ArrayBuffer), arrayBufferViewSchema]);
 
-export const authenticationExtensionsPRFValuesSchema: ZodType<AuthenticationExtensionsPRFValues> = z.object({
+export const authenticationExtensionsPRFValuesSchema = z.object({
 	first: bufferSourceSchema,
 	second: bufferSourceSchema.optional(),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsPRFValues>);
 
 export interface AuthenticationExtensionsPRFInputs {
     eval?: AuthenticationExtensionsPRFValues;
     evalByCredential?: Record<string, AuthenticationExtensionsPRFValues>;
 };
 
-export const authenticationExtensionsPRFInputsSchema: ZodType<AuthenticationExtensionsPRFInputs> = z.object({
+export const authenticationExtensionsPRFInputsSchema = z.object({
 	eval: authenticationExtensionsPRFValuesSchema.optional(),
 	evalByCredential: z.record(authenticationExtensionsPRFValuesSchema).optional(),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsPRFInputs>);
 
 export interface AuthenticationExtensionsSupplementalPubKeysInputs {
     scopes: string[];
@@ -116,17 +138,17 @@ export interface AuthenticationExtensionsSupplementalPubKeysInputs {
     attestationFormats?: string[];
 };
 
-export const authenticationExtensionsSupplementalPubKeysInputsSchema: ZodType<AuthenticationExtensionsSupplementalPubKeysInputs> = z.object({
+export const authenticationExtensionsSupplementalPubKeysInputsSchema = z.object({
 	scopes: z.array(z.string()),
 	attestation: z.string().optional(),
 	attestationFormats: z.array(z.string()).optional(),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsSupplementalPubKeysInputs>);
 
 
 
 export type LargeBlobSupport = "preferred" | "required";
 
-export const largeBlobSupportSchema: ZodType<LargeBlobSupport> = z.union([
+export const largeBlobSupportSchema: z.ZodType<LargeBlobSupport> = z.union([
 	z.literal("preferred"),
 	z.literal("required"),
 ]);
@@ -146,11 +168,11 @@ export interface AuthenticationExtensionsLargeBlobInputs {
 	write?: Base64URLString;
 }
 
-export const authenticationExtensionsLargeBlobInputsSchema: ZodType<AuthenticationExtensionsLargeBlobInputs> = z.object({
+export const authenticationExtensionsLargeBlobInputsSchema = z.object({
 	support: largeBlobSupportSchema.optional(),
 	read: z.boolean().optional(),
 	write: z.string().optional(),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsLargeBlobInputs>);
 
 
 /**
@@ -171,7 +193,7 @@ export type AuthenticationExtensionsClientInputs = TypeScriptAuthenticationExten
 	supplementalPubKeys?: AuthenticationExtensionsSupplementalPubKeysInputs;
 }
 
-export const authenticationExtensionsClientInputsSchema: ZodType<AuthenticationExtensionsClientInputs> = z.union([z.record(z.string()), z.object({
+export const authenticationExtensionsClientInputsSchema: z.ZodType<AuthenticationExtensionsClientInputs> = z.union([z.record(z.string()), z.object({
 	largeBlob: authenticationExtensionsLargeBlobInputsSchema.optional(),
 	appidExclude: z.string().optional(),
 	prf: authenticationExtensionsPRFInputsSchema.optional(),
@@ -183,9 +205,9 @@ interface AuthenticationExtensionsSupplementalPubKeysOutputs {
 	signatures: ArrayBuffer[];
 };
 
-export const authenticationExtensionsSupplementalPubKeysOutputsSchema: ZodType<AuthenticationExtensionsSupplementalPubKeysOutputs> = z.object({
+export const authenticationExtensionsSupplementalPubKeysOutputsSchema = z.object({
 	signatures: z.array(z.instanceof(ArrayBuffer)),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsSupplementalPubKeysOutputs>);
 
 // - largeBlob extension: https://w3c.github.io/webauthn/#sctn-large-blob-extension
 export interface AuthenticationExtensionsClientOutputs {
@@ -196,14 +218,14 @@ export interface AuthenticationExtensionsClientOutputs {
 	};
 }
 
-export const authenticationExtensionsClientOutputsSchema: ZodType<AuthenticationExtensionsClientOutputs> = z.union([z.record(z.string()), z.object({
+export const authenticationExtensionsClientOutputsSchema: z.ZodType<AuthenticationExtensionsClientOutputs> = z.record(z.string()).and(z.object({
 	supplementalPubKeys: authenticationExtensionsSupplementalPubKeysOutputsSchema.optional(),
 	largeBlob: z.object({
 		supported: z.boolean().optional(),
 		written: z.boolean().optional(),
 		blob: z.instanceof(ArrayBuffer).optional(),
 	}).optional(),
-})]);
+} satisfies ToZodSchema<AuthenticationExtensionsClientOutputs> ));
 
 /**
  * - Specification reference: https://w3c.github.io/webauthn/#dictdef-authenticationextensionslargebloboutputs
@@ -219,11 +241,11 @@ export interface AuthenticationExtensionsLargeBlobOutputsJson {
 	written?: boolean;
 }
 
-export const authenticationExtensionsLargeBlobOutputsSchema: ZodType<AuthenticationExtensionsLargeBlobOutputsJson> = z.object({
+export const authenticationExtensionsLargeBlobOutputsSchema = z.object({
 	supported: z.boolean().optional(),
 	blob: base64UrlSchema.optional(),
 	written: z.boolean().optional(),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsLargeBlobOutputsJson>);
 
 
 
@@ -232,9 +254,9 @@ export interface AuthenticationExtensionsClientOutputsJSON extends Omit<Authenti
 	largeBlob?: AuthenticationExtensionsLargeBlobOutputsJson;
 }
 
-export const authenticationExtensionsClientOutputsJSONSchema: ZodType<AuthenticationExtensionsClientOutputsJSON> = z.object({
+export const authenticationExtensionsClientOutputsJSONSchema = z.object({
 	largeBlob: authenticationExtensionsLargeBlobOutputsSchema.optional(),
-});
+} satisfies ToZodSchema<AuthenticationExtensionsClientOutputsJSON>);
 
 
 /**
@@ -257,7 +279,7 @@ export interface PublicKeyCredentialCreationOptionsJSON {
 	extensions?: AuthenticationExtensionsClientInputs;
 }
 
-export const publicKeyCredentialCreationOptionsJSONSchema: ZodType<PublicKeyCredentialCreationOptionsJSON> = z.object({
+export const publicKeyCredentialCreationOptionsJSONSchema = z.object({
 	rp: publicKeyCredentialRpEntityWithIconSchema,
 	user: publicKeyCredentialUserEntityWithIconSchema,
 	challenge: base64UrlSchema,
@@ -276,7 +298,7 @@ export const publicKeyCredentialCreationOptionsJSONSchema: ZodType<PublicKeyCred
 	}).optional(),
 	attestation: z.union([z.literal("none"), z.literal("indirect"), z.literal("direct"), z.literal("enterprise")]).optional(),
 	extensions: authenticationExtensionsClientInputsSchema.optional(),
-});
+} satisfies ToZodSchema<PublicKeyCredentialCreationOptionsJSON>);
 
 
 /**
@@ -291,7 +313,7 @@ export interface PublicKeyCredentialRequestOptionsJSON {
 	extensions?: AuthenticationExtensionsClientInputs;
 }
 
-export const publicKeyCredentialRequestOptionsJSONSchema: ZodType<PublicKeyCredentialRequestOptionsJSON> = z.object({
+export const publicKeyCredentialRequestOptionsJSONSchema = z.object({
 	challenge: base64UrlSchema,
 	timeout: z.number().optional(),
 	rpId: z.string(),
@@ -302,20 +324,20 @@ export const publicKeyCredentialRequestOptionsJSONSchema: ZodType<PublicKeyCrede
 			read: z.boolean().optional(),
 		}).optional(),
 	}).optional(),
-});
+} satisfies ToZodSchema<PublicKeyCredentialRequestOptionsJSON>);
 
 export interface AuthenticatorAttestationResponseJSON extends Omit<AuthenticatorAttestationResponseJSONBase, "transports"> {
     transports?: AuthenticatorTransportFuture[];
 }
 
-export const authenticatorAttestationResponseJSONSchema: ZodType<AuthenticatorAttestationResponseJSON> = z.object({
+export const authenticatorAttestationResponseJSONSchema = z.object({
 	clientDataJSON: base64UrlSchema,
 	attestationObject: base64UrlSchema,
-	authenticatorData: base64UrlSchema,
-	transports: z.array(z.string()).optional(),
+	authenticatorData: base64UrlSchema.optional(),
+	transports: z.array(authenticatorTransportFutureSchema).optional(),
 	publicKeyAlgorithm: z.number().optional(),
 	publicKey: base64UrlSchema.optional(),
-});
+} satisfies ToZodSchema<AuthenticatorAttestationResponseJSON>);
 
 /**
  * A slightly-modified RegistrationCredential to simplify working with ArrayBuffers that
@@ -332,14 +354,14 @@ export interface RegistrationResponseJSON {
 	type: PublicKeyCredentialType;
 }
 
-export const registrationResponseJSONSchema: ZodType<RegistrationResponseJSON> = z.object({
+export const registrationResponseJSONSchema = z.object({
 	id: base64UrlSchema,
 	rawId: base64UrlSchema,
 	response: authenticatorAttestationResponseJSONSchema,
 	authenticatorAttachment: z.union([z.literal("cross-platform"), z.literal("platform")]).optional(),
 	clientExtensionResults: authenticationExtensionsClientOutputsJSONSchema,
 	type: z.literal("public-key"),
-});
+} satisfies ToZodSchema<RegistrationResponseJSON>);
 
 /**
  * A slightly-modified AuthenticatorAssertionResponse to simplify working with ArrayBuffers that
@@ -354,12 +376,12 @@ export interface AuthenticatorAssertionResponseJSON {
 	userHandle?: string;
 }
 
-export const authenticatorAssertionResponseJSONSchema: ZodType<AuthenticatorAssertionResponseJSON> = z.object({
+export const authenticatorAssertionResponseJSONSchema = z.object({
 	clientDataJSON: base64UrlSchema,
 	authenticatorData: base64UrlSchema,
 	signature: base64UrlSchema,
 	userHandle: z.string().optional(),
-});
+} satisfies ToZodSchema<AuthenticatorAssertionResponseJSON>);
 
 /**
  * A slightly-modified AuthenticationCredential to simplify working with ArrayBuffers that
@@ -376,11 +398,11 @@ export interface AuthenticationResponseJSON {
 	type: PublicKeyCredentialType;
 }
 
-export const authenticationResponseJSONSchema: ZodType<AuthenticationResponseJSON> = z.object({
+export const authenticationResponseJSONSchema = z.object({
 	id: base64UrlSchema,
 	rawId: base64UrlSchema,
 	response: authenticatorAssertionResponseJSONSchema,
 	authenticatorAttachment: z.union([z.literal("cross-platform"), z.literal("platform")]).optional(),
 	clientExtensionResults: authenticationExtensionsClientOutputsJSONSchema,
 	type: z.literal("public-key"),
-});
+} satisfies ToZodSchema<AuthenticationResponseJSON>);

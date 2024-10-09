@@ -34,6 +34,8 @@ try {
 
     console.error(error) // Log the original error for debugging purposes
 
+    if (!(error instanceof Error)) throw error;
+
     throw new Error(
         'Failed to load native Expo module `ReactNativePasskeys`. Error message: ' + error.message
         + '\n\n'

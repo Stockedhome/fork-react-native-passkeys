@@ -2,7 +2,11 @@ import type { PublicKeyCredentialCreationOptionsJSON as S_PublicKeyCredentialCre
 import type { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, RegistrationResponseJSON, PublicKeyCredentialRequestOptionsJSON } from "./ReactNativePasskeys.types";
 
 export function castFromSimpleWebAuthnRegistrationOptions(options: S_PublicKeyCredentialCreationOptionsJSON): PublicKeyCredentialCreationOptionsJSON {
+    if (!options.rp.id) throw new TypeError('[castFromSimpleWebAuthnRegistrationOptions] rp.id is required');
     return options as typeof options & {
+        rp: typeof options['rp'] & {
+            id: NonNullable<typeof options['rp']['id']>;
+        };
         extensions: Record<any, any>;
     }
 }

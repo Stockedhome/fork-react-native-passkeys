@@ -37,11 +37,13 @@ export async function startRegistration(
 	try {
 		res =  await ReactNativePasskeysModule.startRegistration(request)
 	} catch (e) {
+		// console.warn('startRegistration error', Object.getOwnPropertyDescriptors(e))
 		if (e instanceof Error) {
 			if (e instanceof SimpleWebAuthnError) {
-				return errorMessageToEnumValue(e.code, e, 'authentication')
+				if (e.code === 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY') return errorMessageToEnumValue(e.cause && typeof e.cause === 'object' && 'message' in e.cause ? e.cause.message as string : e.message, e, 'registration', request)
+				return errorMessageToEnumValue(e.code, e, 'registration', request)
 			} else {
-				return errorMessageToEnumValue(e.message, e, 'authentication')
+				return errorMessageToEnumValue(e.message, e, 'registration', request)
 			}
 		}
 
@@ -67,11 +69,13 @@ export async function startAuthentication(
 	try {
 		res = await ReactNativePasskeysModule.startAuthentication(request)
 	} catch (e) {
+		// console.warn('startAuthentication error', Object.getOwnPropertyDescriptors(e))
 		if (e instanceof Error) {
 			if (e instanceof SimpleWebAuthnError) {
-				return errorMessageToEnumValue(e.code, e, 'authentication')
+				if (e.code === 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY') return errorMessageToEnumValue(e.cause && typeof e.cause === 'object' && 'message' in e.cause ? e.cause.message as string : e.message, e, 'registration', request)
+				return errorMessageToEnumValue(e.code, e, 'registration', request)
 			} else {
-				return errorMessageToEnumValue(e.message, e, 'authentication')
+				return errorMessageToEnumValue(e.message, e, 'registration', request)
 			}
 		}
 
