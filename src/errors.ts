@@ -71,6 +71,7 @@ export function errorMessageToEnumValue(messageOrCode: WebAuthnErrorCode | strin
 			return [WebAuthnError.AuthenticatorPreviouslyRegistered, null, options];
 
 		case 'NotAllowedError':
+		case 'CredentialContainer request is not allowed.':
 		case 'The operation either timed out or was not allowed. See: https://www.w3.org/TR/webauthn-2/#sctn-privacy-considerations-client.':
 			return [WebAuthnError.SecurityOrPrivacyIssueOrUserClosed, null, options];
 
