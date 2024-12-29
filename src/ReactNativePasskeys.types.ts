@@ -41,7 +41,7 @@ export type {
 import base64 from '@hexagon/base64';
 const base64UrlSchema: ZodType<Base64URLString> = z.string().refine((value) => {
 	const returnVal = !!base64.validate(value, true)
-	console.log('base64UrlSchema', value, returnVal)
+	//console.log('base64UrlSchema', value, returnVal)
 	return returnVal
 }, { message: "Invalid base64url" });
 
